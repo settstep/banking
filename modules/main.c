@@ -5,15 +5,18 @@
  *
  * \author  settstep
  *
- * \section sec_main_c_history Historie
+ * \section sec_main_c_history history
  *
  * \par     2020-10-01 settstep
+ * - extract date and amount from input file and writing sum for every month in output file
  * - added main function and program argument checking
  * - file created
  */
 
 #include <stdio.h>
 #include <string.h>
+
+#define MAX_DATA 128
 
 /**
  *  \brief list of valid arguments
@@ -26,9 +29,141 @@ typedef enum
     ARG_MAX     ///< number of valid arguments
 }   argument_te;
 
+typedef struct
+{
+    int amount;
+    int year;
+    short month;
+}   data_ts;
+
 const char *argList[] = {"-in", "-ppm", "-out"};    ///<  list of valid arguments
+static data_ts data_as[MAX_DATA];
+static int nofData = 0;
 
 static void printInfo_v(void);
+
+static void add_v(int year, short month, int amount)
+{
+    int i;
+
+    if (amount > 0)
+    {
+        for (i = 0; i < nofData; i++)
+        {
+            if ((data_as[i].year == year) && (data_as[i].month == month))
+            {
+                data_as[i].amount += amount;
+                break;
+            }
+        }
+        if (i == nofData)
+        {
+            if (nofData < MAX_DATA)
+            {
+                data_as[i].year = year;
+                data_as[i].month = month;
+                data_as[i].amount = amount;
+                nofData++;
+            }
+        }
+    }
+}
+
+static void analyse_v(FILE *fin, FILE *fout, int ppm, short columnDate, short columnAmount)
+{
+    int i;
+    int j;
+    int k;
+    int amount;
+    short col;
+    short month;
+    int year;
+    char buffer[1024];
+    char str[64];
+    char strDate[64];
+    char seperator = ';';
+
+    if (fin && fout && ppm)
+    {
+//        printf("\n");
+        while (fgets(buffer, 1024, fin))
+        {
+            col = 0;
+            j = 0;
+            k = 0;
+//            fputs(buffer, stdout);
+//            str = strtok(buffer, seperator);
+//            while (str != NULL)
+//            {
+//                printf("%d : %s\n", col++, str);
+//                str = strtok(NULL, str);
+//            }
+            for (i = 0; i < strlen(buffer); i++)
+            {
+                if (buffer[i] == seperator)
+                {
+                    col++;
+                }
+                else if (buffer[i] == '\n')
+                {
+                    // ignore newline
+                }
+                else if (col == columnAmount)
+                {
+                    str[j++] = buffer[i];
+                }
+                else if (col == columnDate)
+                {
+                    strDate[k++] = buffer[i];
+                }
+            }
+            str[j++] = '\0';
+            strDate[k++] = '\0';
+
+            month = (strDate[3] - 48) * 10 + strDate[4] - 48;
+            year = (strDate[6] - 48) * 1000 + (strDate[7] - 48) * 100 + (strDate[8] - 48) * 10 + strDate[9] - 48;
+
+            amount = 0;
+            for (i = 0; i < strlen(str); i++)
+            {
+                switch (str[i])
+                {
+                    case '0':
+                    case '1':
+                    case '2':
+                    case '3':
+                    case '4':
+                    case '5':
+                    case '6':
+                    case '7':
+                    case '8':
+                    case '9':
+                        amount *= 10;
+                        amount += str[i] - 48;
+                        break;
+                }
+            }
+            if (str[0] == '-')
+            {
+                amount *= -1;
+            }
+
+//            if (amount > 0)
+//            {
+//                printf("%s : %10s - %04d-%02d %8d\n", strDate, str, year, month, amount);
+//            }
+            add_v(year, month, amount);
+        }
+//        printf("\n");
+
+        fprintf(fout, "YYYY;MM;EUR\n");
+        for (i = 0; i < nofData; i++)
+        {
+//            printf("%02d-%04d : %8d = %10.2f = %10.2f\n", data_as[i].month, data_as[i].year, data_as[i].amount, (float)data_as[i].amount / 100, ((float)data_as[i].amount * ppm) / 1000000 / 100);
+            fprintf(fout, "%04d;%02d;%f\n", data_as[i].year, data_as[i].month, ((float)data_as[i].amount * ppm) / 1000000 / 100);
+        }
+    }
+}
 
 /**
  *  \brief main function
@@ -43,7 +178,7 @@ int main(int arguments_i, char **argument)
     int error_i = 0;
     int argumentsUnknown_i = 0;
     int argumentCount_ai[ARG_MAX] = {0};
-    int ppm = 1;
+    int ppm = 3000;
     argument_te argLast_e = ARG_MAX;
     FILE *fin = NULL;
     FILE *fout = NULL;
@@ -170,6 +305,8 @@ int main(int arguments_i, char **argument)
     {
         printf("starting...");
 
+        analyse_v(fin, fout, ppm, 0, 10);
+
         printf("done\n");
     }
 
@@ -190,7 +327,7 @@ static void printInfo_v(void)
     printf("usage: banking -in <input> [-out <output>] [-ppm <value>]\n");
     printf("\n <input> filename of csv file with banking data\n");
     printf("<output> (optional) filename for csv output file - default is <input>_out.csv\n");
-    printf(" <value> (optional) numeric value for ppm of incoming payment - default is 1 (0,000001)\n");
+    printf(" <value> (optional) numeric value for ppm of incoming payment - default is 3000 (0,003)\n");
     printf("\nexample:\n");
-    printf("banking -in account.csv -out basicIncome.csv -ppm 5\n");
+    printf("banking -in account.csv -out basicIncome.csv -ppm 500\n");
 }
