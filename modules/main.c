@@ -8,6 +8,7 @@
  * \section sec_main_c_history history
  *
  * \par     2020-10-04 settstep
+ * - output is now 2 digits long
  * - added new parameters -cold and -cola to set the columns for date and amount
  * - removed unused code
  * \par     2020-10-01 settstep
@@ -151,7 +152,7 @@ static void analyse_v(FILE *fin, FILE *fout, int ppm, short columnDate, short co
         fprintf(fout, "YYYY;MM;EUR\n");
         for (i = 0; i < nofData; i++)
         {
-            fprintf(fout, "%04d;%02d;%f\n", data_as[i].year, data_as[i].month, ((float)data_as[i].amount * ppm) / 1000000 / 100);
+            fprintf(fout, "%04d;%02d;%.2f\n", data_as[i].year, data_as[i].month, ((float)data_as[i].amount * ppm) / 1000000 / 100);
         }
     }
 }
