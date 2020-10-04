@@ -7,6 +7,9 @@
  *
  * \section sec_main_c_history history
  *
+ * \par     2020-10-04 settstep
+ * - added new parameters -cold and -cola to set the columns for date and amount
+ * - removed unused code
  * \par     2020-10-01 settstep
  * - extract date and amount from input file and writing sum for every month in output file
  * - added main function and program argument checking
@@ -23,10 +26,12 @@
  */
 typedef enum
 {
-    ARG_INPUT,  ///< input file
-    ARG_PPM,    ///< parts per million
-    ARG_OUTPUT, ///< output file
-    ARG_MAX     ///< number of valid arguments
+    ARG_INPUT,     ///< input file
+    ARG_PPM,       ///< parts per million
+    ARG_OUTPUT,    ///< output file
+    ARG_COLDATE,   ///< column date
+    ARG_COLAMOUNT, ///< column amount
+    ARG_MAX        ///< number of valid arguments
 }   argument_te;
 
 typedef struct
@@ -36,7 +41,7 @@ typedef struct
     short month;
 }   data_ts;
 
-const char *argList[] = {"-in", "-ppm", "-out"};    ///<  list of valid arguments
+const char *argList[] = {"-in", "-ppm", "-out", "-cold", "-cola"};    ///<  list of valid arguments
 static data_ts data_as[MAX_DATA];
 static int nofData = 0;
 
@@ -85,19 +90,11 @@ static void analyse_v(FILE *fin, FILE *fout, int ppm, short columnDate, short co
 
     if (fin && fout && ppm)
     {
-//        printf("\n");
         while (fgets(buffer, 1024, fin))
         {
             col = 0;
             j = 0;
             k = 0;
-//            fputs(buffer, stdout);
-//            str = strtok(buffer, seperator);
-//            while (str != NULL)
-//            {
-//                printf("%d : %s\n", col++, str);
-//                str = strtok(NULL, str);
-//            }
             for (i = 0; i < strlen(buffer); i++)
             {
                 if (buffer[i] == seperator)
@@ -148,18 +145,12 @@ static void analyse_v(FILE *fin, FILE *fout, int ppm, short columnDate, short co
                 amount *= -1;
             }
 
-//            if (amount > 0)
-//            {
-//                printf("%s : %10s - %04d-%02d %8d\n", strDate, str, year, month, amount);
-//            }
             add_v(year, month, amount);
         }
-//        printf("\n");
 
         fprintf(fout, "YYYY;MM;EUR\n");
         for (i = 0; i < nofData; i++)
         {
-//            printf("%02d-%04d : %8d = %10.2f = %10.2f\n", data_as[i].month, data_as[i].year, data_as[i].amount, (float)data_as[i].amount / 100, ((float)data_as[i].amount * ppm) / 1000000 / 100);
             fprintf(fout, "%04d;%02d;%f\n", data_as[i].year, data_as[i].month, ((float)data_as[i].amount * ppm) / 1000000 / 100);
         }
     }
@@ -178,6 +169,8 @@ int main(int arguments_i, char **argument)
     int error_i = 0;
     int argumentsUnknown_i = 0;
     int argumentCount_ai[ARG_MAX] = {0};
+    int colamount = 10;
+    int coldate = 0;
     int ppm = 3000;
     argument_te argLast_e = ARG_MAX;
     FILE *fin = NULL;
@@ -197,10 +190,8 @@ int main(int arguments_i, char **argument)
 
     if (!error_i)
     {
-//        printf("%d arguments\n", arguments_i);
         for (i = 0; i < arguments_i; i++)
         {
-//            printf("#%d %s\n", i, argument[i]);
             if (i > 0)
             {
                 if (argLast_e == ARG_MAX)
@@ -210,7 +201,6 @@ int main(int arguments_i, char **argument)
                         if (strcmp(argument[i], argList[j]) == 0)
                         {
                             argumentCount_ai[j]++;
-//                            printf("found valid argument %s %d times\n", argList[j], argumentCount_ai[j]);
                             argLast_e = j;
                             break;
                         }
@@ -223,7 +213,6 @@ int main(int arguments_i, char **argument)
                 else
                 {
                     strcpy(value[argLast_e], argument[i]);
-//                    printf("value for %s: %s\n", argList[argLast_e], value[argLast_e]);
                     argLast_e = ARG_MAX;
                 }
             }
@@ -262,6 +251,24 @@ int main(int arguments_i, char **argument)
         if (sscanf(value[ARG_PPM], "%d", &ppm) != 1)
         {
             printf("error: invalid numeric value for ppm : \"%s\"!\n", value[ARG_PPM]);
+            error_i++;
+        }
+    }
+
+    if (strlen(value[ARG_COLDATE]) > 0)
+    {
+        if (sscanf(value[ARG_COLDATE], "%d", &coldate) != 1)
+        {
+            printf("error: invalid value for date column : \"%s\"!\n", value[ARG_COLDATE]);
+            error_i++;
+        }
+    }
+
+    if (strlen(value[ARG_COLAMOUNT]) > 0)
+    {
+        if (sscanf(value[ARG_COLAMOUNT], "%d", &colamount) != 1)
+        {
+            printf("error: invalid value for amount column : \"%s\"!\n", value[ARG_COLAMOUNT]);
             error_i++;
         }
     }
@@ -305,7 +312,7 @@ int main(int arguments_i, char **argument)
     {
         printf("starting...");
 
-        analyse_v(fin, fout, ppm, 0, 10);
+        analyse_v(fin, fout, ppm, coldate, colamount);
 
         printf("done\n");
     }
@@ -324,10 +331,12 @@ int main(int arguments_i, char **argument)
 
 static void printInfo_v(void)
 {
-    printf("usage: banking -in <input> [-out <output>] [-ppm <value>]\n");
-    printf("\n <input> filename of csv file with banking data\n");
-    printf("<output> (optional) filename for csv output file - default is <input>_out.csv\n");
-    printf(" <value> (optional) numeric value for ppm of incoming payment - default is 3000 (0,003)\n");
+    printf("usage: banking -in <input> [-out <output>] [-ppm <value>] [-cold <coldate>] [-cola <colamount>]\n\n");
+    printf("    <input> filename of csv file with banking data\n");
+    printf("   <output> (optional) filename for csv output file - default is <input>_out.csv\n");
+    printf("    <value> (optional) numeric value for ppm of incoming payment - default is 3000 (0,003)\n");
+    printf("  <coldate> (optional) column containing the date of the transaction - default is 0\n");
+    printf("<colamount> (optional) column containing the amount - default is 10\n");
     printf("\nexample:\n");
-    printf("banking -in account.csv -out basicIncome.csv -ppm 500\n");
+    printf("banking -in account.csv -out basicIncome.csv -ppm 500 -cold 1 -cola 8\n");
 }
