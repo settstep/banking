@@ -8,6 +8,7 @@
  * \section sec_main_c_history history
  *
  * \par     2020-10-04 settstep
+ * - added version
  * - output is now 2 digits long
  * - added new parameters -cold and -cola to set the columns for date and amount
  * - removed unused code
@@ -22,6 +23,10 @@
 
 #define MAX_DATA 128
 
+#define VERSION_MAJOR 1
+#define VERSION_MINOR 0
+#define VERSION_PATCH 0
+
 /**
  *  \brief list of valid arguments
  */
@@ -32,6 +37,7 @@ typedef enum
     ARG_OUTPUT,    ///< output file
     ARG_COLDATE,   ///< column date
     ARG_COLAMOUNT, ///< column amount
+    ARG_VERSION,   ///< version
     ARG_MAX        ///< number of valid arguments
 }   argument_te;
 
@@ -42,7 +48,7 @@ typedef struct
     short month;
 }   data_ts;
 
-const char *argList[] = {"-in", "-ppm", "-out", "-cold", "-cola"};    ///<  list of valid arguments
+const char *argList[] = {"-in", "-ppm", "-out", "-cold", "-cola", "-version"};    ///<  list of valid arguments
 static data_ts data_as[MAX_DATA];
 static int nofData = 0;
 
@@ -235,87 +241,94 @@ int main(int arguments_i, char **argument)
         error_i++;
     }
 
-    if (argumentCount_ai[ARG_INPUT] == 0)
+    if (argumentCount_ai[ARG_VERSION] == 1)
     {
-        printf("error: missing required parameter -in!\n");
-        error_i++;
+        printf("banking version %d.%d.%d\n", VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH);
     }
-
-    if (strlen(value[ARG_INPUT]) == 0)
+    else
     {
-        printf("error: missing input filename!\n");
-        error_i++;
-    }
-
-    if (strlen(value[ARG_PPM]) > 0)
-    {
-        if (sscanf(value[ARG_PPM], "%d", &ppm) != 1)
+        if (argumentCount_ai[ARG_INPUT] == 0)
         {
-            printf("error: invalid numeric value for ppm : \"%s\"!\n", value[ARG_PPM]);
+            printf("error: missing required parameter -in!\n");
             error_i++;
         }
-    }
 
-    if (strlen(value[ARG_COLDATE]) > 0)
-    {
-        if (sscanf(value[ARG_COLDATE], "%d", &coldate) != 1)
+        if (strlen(value[ARG_INPUT]) == 0)
         {
-            printf("error: invalid value for date column : \"%s\"!\n", value[ARG_COLDATE]);
+            printf("error: missing input filename!\n");
             error_i++;
         }
-    }
 
-    if (strlen(value[ARG_COLAMOUNT]) > 0)
-    {
-        if (sscanf(value[ARG_COLAMOUNT], "%d", &colamount) != 1)
+        if (strlen(value[ARG_PPM]) > 0)
         {
-            printf("error: invalid value for amount column : \"%s\"!\n", value[ARG_COLAMOUNT]);
-            error_i++;
+            if (sscanf(value[ARG_PPM], "%d", &ppm) != 1)
+            {
+                printf("error: invalid numeric value for ppm : \"%s\"!\n", value[ARG_PPM]);
+                error_i++;
+            }
         }
-    }
 
-    if (error_i)
-    {
-        printInfo_v();
-    }
-
-    if (!error_i)
-    {
-        fin = fopen(value[ARG_INPUT], "r");
-        if (!fin)
+        if (strlen(value[ARG_COLDATE]) > 0)
         {
-            printf("error opening input file \"%s\"!\n", value[ARG_INPUT]);
-            error_i++;
+            if (sscanf(value[ARG_COLDATE], "%d", &coldate) != 1)
+            {
+                printf("error: invalid value for date column : \"%s\"!\n", value[ARG_COLDATE]);
+                error_i++;
+            }
         }
-    }
-    if (!error_i)
-    {
-        char fname[256];
 
-        if (strlen(value[ARG_OUTPUT]) == 0)
+        if (strlen(value[ARG_COLAMOUNT]) > 0)
         {
-            strcpy(fname, value[ARG_INPUT]);
-            strcat(fname, "_out.csv");
+            if (sscanf(value[ARG_COLAMOUNT], "%d", &colamount) != 1)
+            {
+                printf("error: invalid value for amount column : \"%s\"!\n", value[ARG_COLAMOUNT]);
+                error_i++;
+            }
         }
-        else
+
+        if (error_i)
         {
-            strcpy(fname, value[ARG_OUTPUT]);
+            printInfo_v();
         }
-        fout = fopen(fname, "w");
-        if (!fout)
+
+        if (!error_i)
         {
-            printf("error opening output file \"%s\"!\n", fname);
-            error_i++;
+            fin = fopen(value[ARG_INPUT], "r");
+            if (!fin)
+            {
+                printf("error opening input file \"%s\"!\n", value[ARG_INPUT]);
+                error_i++;
+            }
         }
-    }
+        if (!error_i)
+        {
+            char fname[256];
 
-    if (!error_i)
-    {
-        printf("starting...");
+            if (strlen(value[ARG_OUTPUT]) == 0)
+            {
+                strcpy(fname, value[ARG_INPUT]);
+                strcat(fname, "_out.csv");
+            }
+            else
+            {
+                strcpy(fname, value[ARG_OUTPUT]);
+            }
+            fout = fopen(fname, "w");
+            if (!fout)
+            {
+                printf("error opening output file \"%s\"!\n", fname);
+                error_i++;
+            }
+        }
 
-        analyse_v(fin, fout, ppm, coldate, colamount);
+        if (!error_i)
+        {
+            printf("starting...");
 
-        printf("done\n");
+            analyse_v(fin, fout, ppm, coldate, colamount);
+
+            printf("done\n");
+        }
     }
 
     if (fin)
